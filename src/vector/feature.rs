@@ -53,18 +53,22 @@ impl<'a> Feature<'a> {
             .collect()
     }
 
-    /// Get the value of a named field. If the field exists, it returns a
-    /// `FieldValue` wrapper, that you need to unpack to a base type
-    /// (string, float, etc). If the field is missing, returns `None`.
-    pub fn field(&self, name: &str) -> Result<FieldValue> {
-        let c_name = CString::new(name)?;
-        let field_id = unsafe { gdal_sys::OGR_F_GetFieldIndex(self.c_feature, c_name.as_ptr()) };
-        if field_id == -1 {
-            return Err(GdalError::InvalidFieldName {
-                field_name: name.to_string(),
-                method_name: "OGR_F_GetFieldIndex",
-            });
-        }
+    /// Get the name and value of all fields. It returns a Vec of tuples.
+    /// Each tuple pair contains the field name `String` and `FieldValue` wrapper,
+    /// that you need to unpack to a base type (string, float, etc).
+    pub fn fields(&self) -> Vec<(String, FieldValue)> {
+        let count = unsafe { gdal_sys::OGR_F_GetGeomFieldCount(self.c_feature) };
+        (0..count).map(|field_id| Some(field_id).and_then(|field_id| {
+            let field_defn = unsafe { gdal_sys::OGR_F_GetFieldDefnRef(self.c_feature, field_id) };
+            let field_name = unsafe { gdal_sys::OGR_Fld_GetNameRef(field_defn) };
+            let name = _string(field_name);
+            self.field_from_id(field_id).ok().map(|field_value| (name, field_value))
+        })).filter(|tuple| tuple.is_some())
+            .map(|tuple| tuple.unwrap())
+            .collect()
+    }
+
+    fn field_from_id(&self, field_id: i32) -> Result<FieldValue> {
         let field_defn = unsafe { gdal_sys::OGR_F_GetFieldDefnRef(self.c_feature, field_id) };
         let field_type = unsafe { gdal_sys::OGR_Fld_GetType(field_defn) };
         match field_type {
@@ -96,6 +100,22 @@ impl<'a> Feature<'a> {
                 field_type,
                 method_name: "OGR_Fld_GetType",
             }),
+        }
+    }
+
+    /// Get the value of a named field. If the field exists, it returns a
+    /// `FieldValue` wrapper, that you need to unpack to a base type
+    /// (string, float, etc). If the field is missing, returns `None`.
+    pub fn field(&self, name: &str) -> Result<FieldValue> {
+        let c_name = CString::new(name)?;
+        let field_id = unsafe { gdal_sys::OGR_F_GetFieldIndex(self.c_feature, c_name.as_ptr()) };
+        if field_id == -1 {
+            return Err(GdalError::InvalidFieldName {
+                field_name: name.to_string(),
+                method_name: "OGR_F_GetFieldIndex",
+            });
+        } else {
+            return self.field_from_id(field_id);
         }
     }
 

@@ -57,7 +57,7 @@ impl<'a> Feature<'a> {
     /// Each tuple pair contains the field name `String` and `FieldValue` wrapper,
     /// that you need to unpack to a base type (string, float, etc).
     pub fn fields(&self) -> Vec<(String, FieldValue)> {
-        let count = unsafe { gdal_sys::OGR_F_GetGeomFieldCount(self.c_feature) };
+        let count = unsafe { gdal_sys::OGR_F_GetFieldCount(self.c_feature) };
         (0..count).map(|field_id| Some(field_id).and_then(|field_id| {
             let field_defn = unsafe { gdal_sys::OGR_F_GetFieldDefnRef(self.c_feature, field_id) };
             let field_name = unsafe { gdal_sys::OGR_Fld_GetNameRef(field_defn) };

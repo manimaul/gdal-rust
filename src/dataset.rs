@@ -225,6 +225,23 @@ impl Dataset {
         Ok(self.child_layer(c_layer))
     }
 
+    pub fn layers(&self) -> Vec<Layer> {
+        let count = self.layer_count();
+        if count > 0 {
+            let mut layers = Vec::<Layer>::with_capacity(count as usize);
+            for idx in 0..count {
+                let c_layer = unsafe { gdal_sys::OGR_DS_GetLayer(self.c_dataset, idx as c_int) };
+                if !c_layer.is_null() {
+                    let layer = unsafe { Layer::from_c_layer(self, c_layer) };
+                    layers.push(layer);
+                }
+            }
+            layers
+        } else {
+            vec![]
+        }
+    }
+
     pub fn raster_count(&self) -> isize {
         (unsafe { gdal_sys::GDALGetRasterCount(self.c_dataset) }) as isize
     }

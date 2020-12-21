@@ -316,6 +316,16 @@ impl Geometry {
         unsafe { gdal_sys::OGR_G_Area(self.c_geometry()) }
     }
 
+    pub fn centroid(&self) -> Option<Geometry> {
+        Geometry::empty(OGRwkbGeometryType::wkbPoint).ok().and_then(|point| {
+            if unsafe { gdal_sys::OGR_G_Centroid(self.c_geometry(), point.c_geometry()) == 0 } {
+                Some(point)
+            } else {
+                None
+            }
+        })
+    }
+
     /// May or may not contain a reference to a SpatialRef: if not, it returns
     /// an `Ok(None)`; if it does, it tries to build a SpatialRef. If that
     /// succeeds, it returns an Ok(Some(SpatialRef)), otherwise, you get the
@@ -393,6 +403,18 @@ mod tests {
         let wkt = "POLYGON ((45.0 45.0, 45.0 50.0, 50.0 50.0, 50.0 45.0, 45.0 45.0))";
         let geom = Geometry::from_wkt(wkt).unwrap();
         assert_eq!(geom.area().floor(), 25.0);
+    }
+
+    #[test]
+    pub fn test_centroid() {
+        let wkt = "POLYGON ((45.0 45.0, 45.0 50.0, 50.0 50.0, 50.0 45.0, 45.0 45.0))";
+        let geom = Geometry::from_wkt(wkt).unwrap();
+        let centroid = geom.centroid().unwrap();
+        assert_eq!(centroid.geometry_type(), gdal_sys::OGRwkbGeometryType::wkbPoint);
+        let (x, y, z) = centroid.get_point(0);
+        assert_eq!(x, 47.5);
+        assert_eq!(y, 47.5);
+        assert_eq!(z, 0.0);
     }
 
     #[test]
